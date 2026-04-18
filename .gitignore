@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+backend/.venv/
+frontend/.venv/
+
+# Environment files
+.env
+backend/.env
+frontend/.env
+
+# Database and local runtime artifacts
+*.db
+*.sqlite3
+backend/uploads/*
+backend/generated_reports/*
+!backend/uploads/.gitkeep
+!backend/generated_reports/.gitkeep
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

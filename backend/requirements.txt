@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+alembic
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+google-generativeai
+PyMuPDF
+python-docx
+reportlab
+python-dotenv
+pydantic[email]

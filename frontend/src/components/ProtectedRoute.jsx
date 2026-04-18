@@ -1,0 +1,23 @@
+import { Navigate } from "react-router-dom";
+
+import { useAuth } from "../context/AuthContext";
+
+const ProtectedRoute = ({ children, adminOnly = false }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="min-h-screen grid place-items-center text-indigo font-semibold">Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (adminOnly && user?.role !== "admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+export default ProtectedRoute;
