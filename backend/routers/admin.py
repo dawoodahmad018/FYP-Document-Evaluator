@@ -3,12 +3,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database import get_db
-from middleware.auth_middleware import admin_required
+from services.auth_service import get_current_user
 from models.document import Document
 from models.report import Report
 from models.user import User
 
-router = APIRouter(prefix="/api/admin", tags=["Admin"], dependencies=[Depends(admin_required)])
+def require_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return current_user
+
+router = APIRouter(prefix="/api/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
 
 
 @router.get("/users")
@@ -88,7 +93,7 @@ async def dashboard_stats(db: Session = Depends(get_db)):
 
 
 @router.delete("/user/{user_id}")
-async def delete_user(user_id: int, current_admin: User = Depends(admin_required), db: Session = Depends(get_db)):
+async def delete_user(user_id: int, current_admin: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -98,3 +103,25 @@ async def delete_user(user_id: int, current_admin: User = Depends(admin_required
     db.delete(user)
     db.commit()
     return {"success": True, "data": {"deleted_user_id": user_id}, "message": "User deleted"}
+
+
+@router.delete("/document/{document_id}")
+async def delete_document(document_id: int, current_admin: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    db.delete(document)
+    db.commit()
+    return {"success": True, "data": {"deleted_document_id": document_id}, "message": "Document deleted"}
+
+
+@router.delete("/report/{report_id}")
+async def delete_report(report_id: int, current_admin: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+
+    db.delete(report)
+    db.commit()
+    return {"success": True, "data": {"deleted_report_id": report_id}, "message": "Report deleted"}

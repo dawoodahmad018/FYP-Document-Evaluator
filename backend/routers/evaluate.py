@@ -29,6 +29,7 @@ def _process_evaluation(report_id: int, document_id: int):
     try:
         report = db.query(Report).filter(Report.id == report_id).first()
         document = db.query(Document).filter(Document.id == document_id).first()
+
         if not report or not document:
             return
 
@@ -54,6 +55,7 @@ def _process_evaluation(report_id: int, document_id: int):
 
         pdf_name = f"report_{report.id}_{uuid4().hex}.pdf"
         pdf_path = REPORT_DIR / pdf_name
+
         generated_pdf = generate_report_pdf(
             {
                 "filename": document.filename,
@@ -75,14 +77,20 @@ def _process_evaluation(report_id: int, document_id: int):
             },
             str(pdf_path),
         )
-        report.pdf_path = generated_pdf
 
+        report.pdf_path = generated_pdf
         document.status = "completed"
+
         db.commit()
-    except Exception:
-        if document := db.query(Document).filter(Document.id == document_id).first():
+
+    except Exception as e:
+        print(f"[EVALUATION ERROR] Document {document_id}: {e}")
+
+        document = db.query(Document).filter(Document.id == document_id).first()
+        if document:
             document.status = "failed"
             db.commit()
+
     finally:
         db.close()
 

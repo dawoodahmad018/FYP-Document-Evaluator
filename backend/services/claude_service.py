@@ -2,8 +2,8 @@ import json
 import re
 from typing import Any
 
-import google.generativeai as genai
-from google.api_core.exceptions import NotFound
+from groq import Groq
+import groq
 
 from config import settings
 
@@ -60,23 +60,24 @@ Respond ONLY in this exact JSON format:
 
 
 DEFAULT_MODEL_CANDIDATES = [
-    "gemini-2.0-flash",
-    "gemini-flash-latest",
-    "models/gemini-2.0-flash",
-    "models/gemini-flash-latest",
+    "llama-3.3-70b-versatile",
+    "llama3-70b-8192",
+    "llama3-8b-8192"
 ]
 
 
 def evaluate_document(text: str, doc_type: str) -> dict[str, Any]:
-    if not settings.GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY is not set")
+    if not settings.GROQ_API_KEY:
+        raise ValueError("GROQ_API_KEY is not set")
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    limited_text = text[:50000]
+    client = Groq(api_key=settings.GROQ_API_KEY)
+    
+    # Increase text limit to 20,000 for Groq which is generous
+    limited_text = text[:20000]
 
-    model_candidates: list[str] = [settings.GEMINI_MODEL] + DEFAULT_MODEL_CANDIDATES
+    model_candidates: list[str] = [settings.GROQ_MODEL] + DEFAULT_MODEL_CANDIDATES
     seen: set[str] = set()
-    response = None
+    response_content = None
     last_error: Exception | None = None
 
     for model_name in model_candidates:
@@ -84,49 +85,34 @@ def evaluate_document(text: str, doc_type: str) -> dict[str, Any]:
             continue
         seen.add(model_name)
         try:
-            model = genai.GenerativeModel(
-                model_name=model_name,
-                system_instruction=SYSTEM_PROMPT,
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": f"Document Type: {doc_type}\n\nDocument Content:\n{limited_text}"}
+                ],
+                temperature=0.2,
+                max_tokens=2000,
+                response_format={"type": "json_object"}
             )
-            response = model.generate_content(
-                f"Document Type: {doc_type}\n\nDocument Content:\n{limited_text}",
-                generation_config=genai.GenerationConfig(
-                    max_output_tokens=2000,
-                    temperature=0.2,
-                    response_mime_type="application/json",
-                ),
-            )
+            response_content = response.choices[0].message.content
             break
-        except NotFound as exc:
+        except groq.APIStatusError as exc:
+            last_error = exc
+        except groq.APIError as exc:
             last_error = exc
 
-    if response is None:
+    if response_content is None:
         if last_error:
             raise last_error
-        raise ValueError("No supported Gemini model was available for this API key")
+        raise ValueError("No supported Groq model was available for this API key")
 
-    raw_text = _extract_text(response)
-    if not raw_text:
-        raise ValueError("Empty response from Gemini")
+    if not response_content:
+        raise ValueError("Empty response from Groq")
 
-    json_text = _extract_json(raw_text)
+    json_text = _extract_json(response_content)
     payload = json.loads(json_text)
     return _normalize_payload(payload)
-
-
-def _extract_text(response: Any) -> str:
-    text = getattr(response, "text", None)
-    if text:
-        return text.strip()
-
-    candidates = getattr(response, "candidates", None) or []
-    for candidate in candidates:
-        content = getattr(candidate, "content", None)
-        parts = getattr(content, "parts", None) or []
-        joined = "".join([getattr(part, "text", "") for part in parts]).strip()
-        if joined:
-            return joined
-    return ""
 
 
 def _extract_json(raw_text: str) -> str:

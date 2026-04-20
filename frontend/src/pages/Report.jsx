@@ -55,7 +55,31 @@ const Report = () => {
             <span>Overall Score</span>
           </div>
           <div className="mt-4">
-            <a href={`http://localhost:8000/api/reports/${report.id}/pdf`} className="neon-btn alt px-4 py-2 rounded-lg text-white font-semibold">Download PDF Report</a>
+            <button 
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem("token");
+                  const response = await fetch(`http://localhost:8000/api/reports/${report.id}/pdf`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  });
+                  if (!response.ok) throw new Error("PDF load failed");
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `report_${report.id}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  a.remove();
+                } catch (err) {
+                  toast.error("Could not download PDF");
+                }
+              }} 
+              className="neon-btn alt px-4 py-2 rounded-lg text-white font-semibold"
+            >
+              Download PDF Report
+            </button>
           </div>
         </div>
 
